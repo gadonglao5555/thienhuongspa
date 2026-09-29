@@ -172,6 +172,9 @@ select.sort{border:1px solid var(--line);background:var(--card);border-radius:99
 .who .meta2 span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .who .meta2 .i{width:14px;height:14px}
 .age{flex:none;font-weight:700;color:var(--ube)}
+.gift{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;max-width:100%;margin:2px 0 0;font-size:12.5px;font-weight:700;color:#9A3F6C;background:#FCEAF2;border:1px solid #F2C6DA;border-radius:999px;padding:4px 10px}
+.gift span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gift .i{width:14px;height:14px;flex:none}
 input[type="date"]{-webkit-appearance:none;appearance:none;min-height:46px}
 
 /* ---------- Revenue ---------- */
@@ -247,6 +250,7 @@ input[type="date"]{-webkit-appearance:none;appearance:none;min-height:46px}
   <symbol id="i-right" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></symbol>
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></symbol>
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></symbol>
+  <symbol id="i-gift" viewBox="0 0 24 24"><rect x="3.5" y="8.5" width="17" height="4" rx="1"/><path d="M5 12.5v7.5h14v-7.5M12 8.5V20"/><path d="M12 8.5c-1.8 0-4.5-.4-4.5-2.4 0-1.3 1-2 2-2 1.8 0 2.5 2.4 2.5 4.4zM12 8.5c1.8 0 4.5-.4 4.5-2.4 0-1.3-1-2-2-2-1.8 0-2.5 2.4-2.5 4.4z"/></symbol>
   <symbol id="i-table" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10"/></symbol>
 </svg>
 
@@ -308,6 +312,10 @@ input[type="date"]{-webkit-appearance:none;appearance:none;min-height:46px}
     <div class="top-svc" id="topSvc"></div>
   </section>
   <section class="card">
+    <p class="eyebrow" style="margin-bottom:12px">Quà tặng đã trao trong kỳ</p>
+    <div class="top-svc" id="giftStats"></div>
+  </section>
+  <section class="card">
     <p class="eyebrow" style="margin-bottom:4px">Các lượt khách trong kỳ</p>
     <div class="tx" id="tx"></div>
   </section>
@@ -344,7 +352,7 @@ input[type="date"]{-webkit-appearance:none;appearance:none;min-height:46px}
   <section class="card stack">
     <p class="eyebrow">Vùng nguy hiểm</p>
     <button class="btn btn-danger btn-block" id="btnWipe" type="button">Xóa toàn bộ dữ liệu trên máy</button>
-    <p class="note" id="verNote">Thienhuongspa · phiên bản 1.1</p>
+    <p class="note" id="verNote">Thienhuongspa · phiên bản 1.2</p>
   </section>
 </main>
 
@@ -419,6 +427,13 @@ input[type="date"]{-webkit-appearance:none;appearance:none;min-height:46px}
           <button class="chip" type="button" data-pct="0">Không giảm</button>
         </div>
         <div class="calc num" id="calc"></div>
+      </div>
+
+      <div class="group">
+        <label class="gl" for="f-gift">Quà tặng</label>
+        <div class="field"><svg class="i" style="color:#9A3F6C"><use href="#i-gift"/></svg><input id="f-gift" placeholder="Quà tặng kèm, ví dụ: Mặt nạ dưỡng ẩm" list="giftList" autocomplete="off" autocapitalize="sentences"></div>
+        <datalist id="giftList"></datalist>
+        <div class="chips" id="giftChips" style="flex-wrap:wrap"></div>
       </div>
 
       <div class="group">
@@ -628,7 +643,7 @@ const fold = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").repla
 function visible(){
   const q = fold(S.q.trim());
   let list = S.records.filter(r => match(r, S.filter));
-  if (q) list = list.filter(r => fold(r.name).includes(q) || fold(r.service).includes(q) || fold(r.address).includes(q) || (r.phone || "").includes(S.q.trim()));
+  if (q) list = list.filter(r => fold(r.name).includes(q) || fold(r.service).includes(q) || fold(r.address).includes(q) || fold(r.gift).includes(q) || (r.phone || "").includes(S.q.trim()));
   if (S.sort === "newest") list.sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
   else if (S.sort === "name") list.sort((a, b) => a.name.localeCompare(b.name, "vi"));
   else list.sort((a, b) => {
@@ -666,6 +681,7 @@ function card(r){
         <h3>${r.name ? esc(r.name) : '<span class="noname">Khách chưa có tên</span>'}${r.sample ? '<span class="tag-sample">Mẫu</span>' : ""}</h3>
         ${r.service ? `<p class="svc">${esc(r.service)}</p>` : ""}
         <p class="meta num">${icon("cal")}${fmtD(r.date)}${r.phone ? " · " + esc(r.phone) : ""}</p>
+        ${r.gift ? `<p class="gift">${icon("gift")}<span>${esc(r.gift)}</span></p>` : ""}
         ${(ageOf(r) != null || r.address) ? `<p class="meta2">${ageOf(r) != null ? `<b class="age num">${ageOf(r)} tuổi</b>` : ""}${ageOf(r) != null && r.address ? "·" : ""}${r.address ? `${icon("pin")}<span>${esc(r.address)}</span>` : ""}</p>` : ""}
       </div>
       <div class="price num">
@@ -707,6 +723,13 @@ function openForm(rec){
   $("#f-phone").value = rec ? (rec.phone || "") : "";
   $("#f-age").value = rec && rec.birthYear ? String(curYear() - rec.birthYear) : "";
   $("#f-addr").value = rec ? (rec.address || "") : "";
+  $("#f-gift").value = rec ? (rec.gift || "") : "";
+  const gcount = {};
+  S.records.forEach(r => { if (r.gift) gcount[r.gift] = (gcount[r.gift] || 0) + 1; });
+  const gifts = Object.keys(gcount).sort((a, b) => gcount[b] - gcount[a]);
+  $("#giftList").innerHTML = gifts.slice(0, 30).map(g => `<option value="${esc(g)}"></option>`).join("");
+  $("#giftChips").innerHTML = gifts.slice(0, 6).map(g => `<button type="button" class="chip" data-gift="${esc(g)}">${esc(g)}</button>`).join("");
+  $("#giftChips").hidden = !gifts.length;
   const addrs = [...new Set(S.records.map(r => r.address).filter(Boolean))].slice(-30);
   $("#addrList").innerHTML = addrs.map(a => `<option value="${esc(a)}"></option>`).join("");
   $("#f-service").value = rec ? (rec.service || "") : "";
@@ -739,6 +762,7 @@ function formData(stampTime = true){
     phone: $("#f-phone").value.trim(),
     birthYear: Number.isNaN(by) ? null : by,
     address: $("#f-addr").value.trim().replace(/\s+/g, " "),
+    gift: $("#f-gift").value.trim().replace(/\s+/g, " "),
     service: $("#f-service").value.trim(),
     date: $("#f-date").value || S.today,
     warranty: Math.max(0, Math.min(3650, parseInt($("#f-war").value, 10) || 0)),
@@ -749,7 +773,7 @@ function formData(stampTime = true){
   return d;
 }
 function formIsEmpty(d){
-  return !d.name && !d.phone && !d.birthYear && !d.address && !d.service && d.price == null && d.sale == null && !d.notes;
+  return !d.name && !d.phone && !d.birthYear && !d.address && !d.gift && !d.service && d.price == null && d.sale == null && !d.notes;
 }
 async function requestClose(){
   const d = formData(false);
@@ -923,8 +947,15 @@ function renderRev(){
   const tmax = tops.length ? tops[0][1].v : 1;
   $("#topSvc").innerHTML = tops.length ? tops.map(([k, o]) => `<div class="ts-row"><div class="l"><span>${esc(k)}</span><span class="num muted">${o.c} lượt · <b style="color:var(--plum)">${short(o.v)}</b></span></div><div class="track"><i style="width:${Math.max(4, o.v / tmax * 100).toFixed(1)}%"></i></div></div>`).join("")
     : `<p class="note">Chưa có lượt khách nào trong kỳ này.</p>`;
+  const gb = {};
+  list.forEach(r => { if (r.gift) gb[r.gift] = (gb[r.gift] || 0) + 1; });
+  const gtops = Object.entries(gb).sort((x, y) => y[1] - x[1]);
+  const gmax = gtops.length ? gtops[0][1] : 1, gtotal = gtops.reduce((a, [, c]) => a + c, 0);
+  $("#giftStats").innerHTML = gtops.length
+    ? `<p class="note num">Tổng cộng <b style="color:var(--plum)">${gtotal}</b> phần quà</p>` + gtops.slice(0, 8).map(([k, c]) => `<div class="ts-row"><div class="l"><span>${esc(k)}</span><span class="num muted"><b style="color:var(--plum)">${c}</b> phần</span></div><div class="track"><i style="width:${Math.max(4, c / gmax * 100).toFixed(1)}%;background:linear-gradient(90deg,#E9A3C4,#9A3F6C)"></i></div></div>`).join("")
+    : `<p class="note">Chưa tặng quà nào trong kỳ này.</p>`;
   const tx = list.slice().sort((x, y) => y.date.localeCompare(x.date));
-  $("#tx").innerHTML = tx.length ? tx.map(r => `<div class="tx-row"><span class="d num">${fmtD(r.date).slice(0,5)}</span><div class="n"><b>${esc(nameOf(r))}</b><span>${esc(r.service || "—")}</span></div><span class="a num">${money(effective(r))}</span></div>`).join("")
+  $("#tx").innerHTML = tx.length ? tx.map(r => `<div class="tx-row"><span class="d num">${fmtD(r.date).slice(0,5)}</span><div class="n"><b>${esc(nameOf(r))}</b><span>${esc(r.service || "—")}${r.gift ? " · Quà: " + esc(r.gift) : ""}</span></div><span class="a num">${money(effective(r))}</span></div>`).join("")
     : `<p class="note" style="padding:8px 0">Không có dữ liệu.</p>`;
 }
 
@@ -943,16 +974,16 @@ async function renderData(){
 }
 function csv(){
   const q = v => { const s = String(v ?? ""); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-  const head = ["Họ và tên","Số điện thoại","Tuổi","Năm sinh","Địa chỉ","Dịch vụ","Ngày sử dụng","Bảo hành (ngày)","Ngày đến hạn","Số ngày còn lại","Giá gốc","Giá khuyến mãi","Thực thu","Ghi chú"];
+  const head = ["Họ và tên","Số điện thoại","Tuổi","Năm sinh","Địa chỉ","Dịch vụ","Ngày sử dụng","Bảo hành (ngày)","Ngày đến hạn","Số ngày còn lại","Giá gốc","Giá khuyến mãi","Thực thu","Quà tặng","Ghi chú"];
   const rows = S.records.slice().sort((a, b) => a.date.localeCompare(b.date)).map(r => [
-    r.name, r.phone, ageOf(r) ?? "", r.birthYear ?? "", r.address, r.service, fmtD(r.date), r.warranty, r.warranty ? fmtD(dueOf(r)) : "", r.warranty ? remain(r) : "", r.price ?? "", r.sale ?? "", effective(r), r.notes
+    r.name, r.phone, ageOf(r) ?? "", r.birthYear ?? "", r.address, r.service, fmtD(r.date), r.warranty, r.warranty ? fmtD(dueOf(r)) : "", r.warranty ? remain(r) : "", r.price ?? "", r.sale ?? "", effective(r), r.gift, r.notes
   ].map(q).join(","));
   return "﻿" + [head.join(","), ...rows].join("\r\n");
 }
 function validRecords(arr){
   return (Array.isArray(arr) ? arr : []).filter(r => r && typeof r === "object" && /^\d{4}-\d{2}-\d{2}$/.test(r.date))
     .map(r => ({ id: r.id || uid(), name: typeof r.name === "string" ? r.name : "", phone: r.phone || "",
-      birthYear: Number.isFinite(+r.birthYear) && +r.birthYear > 1900 ? +r.birthYear : null, address: r.address || "", service: r.service || "", date: r.date, warranty: +r.warranty || 0,
+      birthYear: Number.isFinite(+r.birthYear) && +r.birthYear > 1900 ? +r.birthYear : null, address: r.address || "", gift: r.gift || "", service: r.service || "", date: r.date, warranty: +r.warranty || 0,
       price: r.price == null || r.price === "" || !Number.isFinite(+r.price) ? null : +r.price, sale: r.sale == null || r.sale === "" ? null : +r.sale, notes: r.notes || "", sample: !!r.sample,
       createdAt: r.createdAt || new Date().toISOString(), updatedAt: r.updatedAt || r.createdAt || new Date().toISOString() }));
 }
@@ -985,6 +1016,7 @@ function sampleData(){
   const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   const names = ["Nguyễn Thị Lan Anh","Trần Minh Thư","Lê Hoàng Yến","Phạm Ngọc Hân","Vũ Thanh Hương","Đỗ Mai Chi","Bùi Thu Trang","Hoàng Bảo Ngọc","Ngô Phương Linh","Đặng Kim Oanh","Phan Thùy Dung","Trịnh Khánh Vy","Lý Hồng Nhung","Mai Diệu Linh"];
   const svcs = [["Chăm sóc da mặt chuyên sâu",450000,0],["Triệt lông nách",300000,90],["Phun môi collagen",2500000,180],["Massage body đá nóng",550000,0],["Điều trị mụn chuẩn y khoa",800000,30],["Tắm trắng phi thuyền",1200000,30],["Nối mi volume",350000,15],["Gội đầu dưỡng sinh",150000,0],["Phun mày ombre",2000000,180]];
+  const giftsS = ["Mặt nạ dưỡng ẩm","Serum vitamin C mini","Voucher gội đầu","Kem chống nắng mini","","","",""];
   const addrs = ["Q. Bình Thạnh, TP.HCM","Q.3, TP.HCM","TP. Thủ Đức, TP.HCM","Q. Gò Vấp, TP.HCM","Q. Phú Nhuận, TP.HCM","Dĩ An, Bình Dương",""];
   const out = [];
   for (let i = 0; i < 34; i++) {
@@ -994,9 +1026,9 @@ function sampleData(){
     const sale = disc ? Math.round(s[1] * (100 - disc) / 100 / 1000) * 1000 : null;
     const t = new Date().toISOString();
     if (i === 3) { out.push({ id: uid(), name: "", phone: "", birthYear: null, address: "", service: "Gội đầu dưỡng sinh", date: addDays(S.today, -1), warranty: 0, price: null, sale: null, notes: "Khách vãng lai, bổ sung sau", sample: true, createdAt: t, updatedAt: t }); }
-    out.push({ id: uid(), name: names[Math.floor(rnd() * names.length)], phone: "09" + String(Math.floor(rnd() * 1e8)).padStart(8, "0"), birthYear: curYear() - (20 + Math.floor(rnd() * 32)), address: addrs[Math.floor(rnd() * addrs.length)], service: s[0], date, warranty: s[2], price: s[1], sale, notes: "", sample: true, createdAt: t, updatedAt: t });
+    out.push({ id: uid(), name: names[Math.floor(rnd() * names.length)], phone: "09" + String(Math.floor(rnd() * 1e8)).padStart(8, "0"), birthYear: curYear() - (20 + Math.floor(rnd() * 32)), address: addrs[Math.floor(rnd() * addrs.length)], gift: giftsS[Math.floor(rnd() * giftsS.length)], service: s[0], date, warranty: s[2], price: s[1], sale, notes: "", sample: true, createdAt: t, updatedAt: t });
   }
-  out.push({ id: uid(), name: "Nguyễn Thị Hương", phone: "0912345678", birthYear: curYear() - 34, address: "Q. Tân Bình, TP.HCM", service: "Phun môi collagen", date: addDays(S.today, -176), warranty: 180, price: 2500000, sale: 1990000, notes: "Hẹn dặm màu", sample: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+  out.push({ id: uid(), name: "Nguyễn Thị Hương", phone: "0912345678", birthYear: curYear() - 34, address: "Q. Tân Bình, TP.HCM", gift: "Son dưỡng môi", service: "Phun môi collagen", date: addDays(S.today, -176), warranty: 180, price: 2500000, sale: 1990000, notes: "Hẹn dặm màu", sample: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
   return out;
 }
 
@@ -1057,6 +1089,7 @@ function bind(){
   $("#sheetWrap").addEventListener("click", e => { if (e.target.id === "sheetWrap") requestClose(); });
   $("#dateChips").onclick = e => { const b = e.target.closest("[data-off]"); if (b) { $("#f-date").value = addDays(S.today, +b.dataset.off); updateForm(); } };
   $("#warChips").onclick = e => { const b = e.target.closest("[data-w]"); if (b) { $("#f-war").value = +b.dataset.w || ""; updateForm(); } };
+  $("#giftChips").onclick = e => { const b = e.target.closest("[data-gift]"); if (b) $("#f-gift").value = b.dataset.gift; };
   $("#svcChips").onclick = e => {
     const b = e.target.closest("[data-svc]"); if (!b) return;
     $("#f-service").value = b.dataset.svc;
