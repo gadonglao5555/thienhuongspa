@@ -1,6 +1,6 @@
 // Bộ nhớ đệm để app mở được cả khi không có mạng.
 // Khi cập nhật app, tăng số phiên bản dưới đây.
-const CACHE = "thienhuongspa-v2";
+const CACHE = "thienhuongspa-v3";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png", "./icons/logo-wide.png"];
 
 self.addEventListener("install", e => {

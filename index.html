@@ -163,6 +163,15 @@ select.sort{border:1px solid var(--line);background:var(--card);border-radius:99
 .calc .save{color:var(--sage);font-weight:700}
 .calc .bad{color:var(--rose);font-weight:700}
 .two{display:grid;grid-template-columns:1fr;gap:10px}
+.two-col{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:10px}
+.two-col > *{min-width:0}
+.form-note{margin:0;font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.hint.bad{color:var(--rose);font-weight:600}
+.noname{color:var(--muted);font-style:italic;font-weight:600}
+.who .meta2{margin:0;color:var(--muted);font-size:12.5px;display:flex;align-items:center;gap:5px;min-width:0}
+.who .meta2 span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who .meta2 .i{width:14px;height:14px}
+.age{flex:none;font-weight:700;color:var(--ube)}
 input[type="date"]{-webkit-appearance:none;appearance:none;min-height:46px}
 
 /* ---------- Revenue ---------- */
@@ -237,6 +246,7 @@ input[type="date"]{-webkit-appearance:none;appearance:none;min-height:46px}
   <symbol id="i-left" viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></symbol>
   <symbol id="i-right" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></symbol>
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></symbol>
   <symbol id="i-table" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10"/></symbol>
 </svg>
 
@@ -334,7 +344,7 @@ input[type="date"]{-webkit-appearance:none;appearance:none;min-height:46px}
   <section class="card stack">
     <p class="eyebrow">Vùng nguy hiểm</p>
     <button class="btn btn-danger btn-block" id="btnWipe" type="button">Xóa toàn bộ dữ liệu trên máy</button>
-    <p class="note" id="verNote">Thienhuongspa · phiên bản 1.0</p>
+    <p class="note" id="verNote">Thienhuongspa · phiên bản 1.1</p>
   </section>
 </main>
 
@@ -363,10 +373,17 @@ input[type="date"]{-webkit-appearance:none;appearance:none;min-height:46px}
       <button class="linkbtn strong" type="submit" id="fSave">Lưu</button>
     </div>
     <div class="sheet-body">
+      <p class="form-note">Không bắt buộc điền đủ các ô. Có thông tin nào thì lưu thông tin đó, bổ sung sau cũng được.</p>
       <div class="group">
         <label class="gl" for="f-name">Khách hàng</label>
         <div class="field" id="w-name"><input id="f-name" placeholder="Họ và tên khách hàng" autocomplete="off" autocapitalize="words" enterkeyhint="next"></div>
-        <div class="field"><input id="f-phone" placeholder="Số điện thoại (không bắt buộc)" inputmode="tel" autocomplete="off"></div>
+        <div class="two-col">
+          <div class="field"><input id="f-phone" placeholder="Số điện thoại" inputmode="tel" autocomplete="off"></div>
+          <div class="field"><input id="f-age" placeholder="Tuổi / năm sinh" inputmode="numeric" maxlength="4" autocomplete="off"><span class="unit" id="ageUnit"></span></div>
+        </div>
+        <p class="hint" id="agePreview" hidden></p>
+        <div class="field"><svg class="i" style="color:var(--ube)"><use href="#i-pin"/></svg><input id="f-addr" placeholder="Địa chỉ" list="addrList" autocomplete="off" autocapitalize="words"></div>
+        <datalist id="addrList"></datalist>
         <div class="field"><input id="f-service" placeholder="Tên dịch vụ, ví dụ: Chăm sóc da mặt" autocomplete="off" autocapitalize="sentences"></div>
         <div class="chips" id="svcChips" style="flex-wrap:wrap"></div>
       </div>
@@ -492,7 +509,20 @@ const S = {
   period: "month", anchor: { y: now0.getFullYear(), m: now0.getMonth()+1 }, sel: null,
   editing: null
 };
-const effective = r => (r.sale ?? r.price);
+const effective = r => (r.sale ?? r.price ?? 0);
+const grossOf = r => (r.price ?? effective(r));
+const curYear = () => +S.today.slice(0, 4);
+const ageOf = r => (r.birthYear ? curYear() - r.birthYear : null);
+const nameOf = r => (r.name || "Khách chưa có tên");
+/** Ô tuổi nhận cả tuổi (32) lẫn năm sinh (1994). Trả về năm sinh, null nếu trống, NaN nếu không hợp lệ. */
+function parseAge(v){
+  const n = parseInt(String(v).replace(/\D/g, ""), 10);
+  if (!n) return null;
+  const y = curYear();
+  if (n >= 1900 && n <= y) return n;
+  if (n > 0 && n <= 120) return y - n;
+  return NaN;
+}
 const dueOf = r => addDays(r.date, r.warranty);
 function remain(r){ return diffDays(S.today, dueOf(r)); }
 function status(r){
@@ -598,7 +628,7 @@ const fold = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").repla
 function visible(){
   const q = fold(S.q.trim());
   let list = S.records.filter(r => match(r, S.filter));
-  if (q) list = list.filter(r => fold(r.name).includes(q) || fold(r.service).includes(q) || (r.phone || "").includes(S.q.trim()));
+  if (q) list = list.filter(r => fold(r.name).includes(q) || fold(r.service).includes(q) || fold(r.address).includes(q) || (r.phone || "").includes(S.q.trim()));
   if (S.sort === "newest") list.sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
   else if (S.sort === "name") list.sort((a, b) => a.name.localeCompare(b.name, "vi"));
   else list.sort((a, b) => {
@@ -614,7 +644,7 @@ function initial(name){ const w = String(name).trim().split(/\s+/); return (w[w.
 
 function card(r){
   const st = status(r);
-  const off = r.sale != null && r.sale < r.price;
+  const off = r.price != null && r.sale != null && r.sale < r.price;
   const pct = off && r.price ? Math.round((r.price - r.sale) / r.price * 100) : 0;
   let war;
   if (!r.warranty) {
@@ -631,14 +661,15 @@ function card(r){
   }
   return `<article class="rec" role="button" tabindex="0" data-id="${esc(r.id)}">
     <div class="rec-top">
-      <div class="av">${esc(initial(r.name))}</div>
+      <div class="av">${esc(r.name ? initial(r.name) : "?")}</div>
       <div class="who">
-        <h3>${esc(r.name)}${r.sample ? '<span class="tag-sample">Mẫu</span>' : ""}</h3>
+        <h3>${r.name ? esc(r.name) : '<span class="noname">Khách chưa có tên</span>'}${r.sample ? '<span class="tag-sample">Mẫu</span>' : ""}</h3>
         ${r.service ? `<p class="svc">${esc(r.service)}</p>` : ""}
         <p class="meta num">${icon("cal")}${fmtD(r.date)}${r.phone ? " · " + esc(r.phone) : ""}</p>
+        ${(ageOf(r) != null || r.address) ? `<p class="meta2">${ageOf(r) != null ? `<b class="age num">${ageOf(r)} tuổi</b>` : ""}${ageOf(r) != null && r.address ? "·" : ""}${r.address ? `${icon("pin")}<span>${esc(r.address)}</span>` : ""}</p>` : ""}
       </div>
       <div class="price num">
-        ${off ? `<s>${money(r.price)}</s><b>${money(r.sale)}</b><span class="off">-${pct}%</span>` : `<b>${money(effective(r))}</b>`}
+        ${off ? `<s>${money(r.price)}</s><b>${money(r.sale)}</b><span class="off">-${pct}%</span>` : (r.price == null && r.sale == null ? `<b class="noname">Chưa nhập giá</b>` : `<b>${money(effective(r))}</b>`)}
       </div>
     </div>
     <div class="war st-${st}">${war}</div>
@@ -674,13 +705,17 @@ function openForm(rec){
   $("#fDelete").hidden = !rec;
   $("#f-name").value = rec ? rec.name : "";
   $("#f-phone").value = rec ? (rec.phone || "") : "";
+  $("#f-age").value = rec && rec.birthYear ? String(curYear() - rec.birthYear) : "";
+  $("#f-addr").value = rec ? (rec.address || "") : "";
+  const addrs = [...new Set(S.records.map(r => r.address).filter(Boolean))].slice(-30);
+  $("#addrList").innerHTML = addrs.map(a => `<option value="${esc(a)}"></option>`).join("");
   $("#f-service").value = rec ? (rec.service || "") : "";
   $("#f-date").value = rec ? rec.date : S.today;
   $("#f-war").value = rec ? (rec.warranty || "") : "";
   setMoney($("#f-price"), rec ? rec.price : null);
   setMoney($("#f-sale"), rec ? rec.sale : null);
   $("#f-notes").value = rec ? (rec.notes || "") : "";
-  $("#w-name").classList.remove("err"); $("#w-price").classList.remove("err");
+
   // gợi ý dịch vụ đã dùng
   const counts = {};
   S.records.forEach(r => { if (r.service) counts[r.service] = (counts[r.service] || 0) + 1; });
@@ -690,7 +725,41 @@ function openForm(rec){
   $("#sheetWrap").hidden = false;
   document.body.style.overflow = "hidden";
   updateForm();
+  S.formInit = JSON.stringify(formData(false));
   if (!rec) setTimeout(() => $("#f-name").focus(), 280);
+}
+/** Đọc dữ liệu đang nhập trên form */
+function formData(stampTime = true){
+  const price = readMoney($("#f-price"));
+  let sale = readMoney($("#f-sale"));
+  if (sale === price) sale = null;
+  const by = parseAge($("#f-age").value);
+  const d = {
+    name: $("#f-name").value.trim().replace(/\s+/g, " "),
+    phone: $("#f-phone").value.trim(),
+    birthYear: Number.isNaN(by) ? null : by,
+    address: $("#f-addr").value.trim().replace(/\s+/g, " "),
+    service: $("#f-service").value.trim(),
+    date: $("#f-date").value || S.today,
+    warranty: Math.max(0, Math.min(3650, parseInt($("#f-war").value, 10) || 0)),
+    price, sale,
+    notes: $("#f-notes").value.trim()
+  };
+  if (stampTime) d.updatedAt = new Date().toISOString();
+  return d;
+}
+function formIsEmpty(d){
+  return !d.name && !d.phone && !d.birthYear && !d.address && !d.service && d.price == null && d.sale == null && !d.notes;
+}
+async function requestClose(){
+  const d = formData(false);
+  const changedForm = JSON.stringify(d) !== S.formInit;
+  if (!changedForm || (!S.editing && formIsEmpty(d))) { closeForm(); return; }
+  const v = await ask(S.editing ? "Lưu thay đổi?" : "Lưu thông tin đã nhập?",
+    "Bạn đã nhập một phần thông tin. Có thể lưu lại ngay và bổ sung sau.",
+    [{ label: "Lưu lại", cls: "btn-ube", v: "save" }, { label: "Bỏ, không lưu", cls: "btn-danger", v: "discard" }, { label: "Tiếp tục nhập", cls: "btn-soft", v: 0 }]);
+  if (v === "save") saveForm();
+  else if (v === "discard") closeForm();
 }
 function closeForm(){ $("#sheetWrap").hidden = true; document.body.style.overflow = ""; S.editing = null; }
 function updateForm(){
@@ -714,31 +783,21 @@ function updateForm(){
     if (s != null && s > p) h += `<span class="bad">Giá khuyến mãi đang cao hơn giá gốc</span>`;
   }
   $("#calc").innerHTML = h;
+  const ageRaw = $("#f-age").value.trim(), by = parseAge(ageRaw), ap = $("#agePreview");
+  $("#ageUnit").textContent = by && !Number.isNaN(by) && String(parseInt(ageRaw, 10)).length <= 3 ? "tuổi" : "";
+  if (!ageRaw || by == null) { ap.hidden = true; }
+  else if (Number.isNaN(by)) { ap.hidden = false; ap.className = "hint bad"; ap.textContent = "Nhập tuổi (ví dụ 32) hoặc năm sinh (ví dụ 1994)"; }
+  else { ap.hidden = false; ap.className = "hint"; ap.textContent = `${curYear() - by} tuổi · sinh năm ${by}. Tuổi tự tăng theo từng năm.`; }
 }
 function formatMoneyInput(el){
   const d = el.value.replace(/\D/g, "").replace(/^0+(?=\d)/, "").slice(0, 12);
   el.value = d ? nf.format(+d) : "";
 }
 async function saveForm(e){
-  e.preventDefault();
-  const name = $("#f-name").value.trim().replace(/\s+/g, " ");
-  const price = readMoney($("#f-price"));
-  $("#w-name").classList.toggle("err", !name);
-  $("#w-price").classList.toggle("err", price == null);
-  if (!name) { toast("Hãy nhập họ và tên khách hàng"); $("#f-name").focus(); return; }
-  if (price == null) { toast("Hãy nhập giá gốc của dịch vụ"); $("#f-price").focus(); return; }
-  let sale = readMoney($("#f-sale"));
-  if (sale === price) sale = null;
-  const data = {
-    name,
-    phone: $("#f-phone").value.trim(),
-    service: $("#f-service").value.trim(),
-    date: $("#f-date").value || S.today,
-    warranty: Math.max(0, Math.min(3650, parseInt($("#f-war").value, 10) || 0)),
-    price, sale,
-    notes: $("#f-notes").value.trim(),
-    updatedAt: new Date().toISOString()
-  };
+  if (e) e.preventDefault();
+  const data = formData();
+  const name = data.name || "Khách chưa có tên";
+  if (!S.editing && formIsEmpty(data)) { closeForm(); toast("Chưa nhập thông tin nào nên không lưu"); return; }
   const isNew = !S.editing;
   if (S.editing) Object.assign(S.editing, data);
   else S.records.push(Object.assign({ id: uid(), createdAt: data.updatedAt }, data));
@@ -749,13 +808,13 @@ async function saveForm(e){
 }
 async function deleteRec(){
   const r = S.editing; if (!r) return;
-  const v = await ask("Xóa lượt khách này?", `${r.name} · ${fmtD(r.date)}. Bạn vẫn có thể lấy lại từ điểm khôi phục tự động.`,
+  const v = await ask("Xóa lượt khách này?", `${nameOf(r)} · ${fmtD(r.date)}. Bạn vẫn có thể lấy lại từ điểm khôi phục tự động.`,
     [{ label: "Xóa", cls: "btn-danger", v: 1 }, { label: "Hủy", cls: "btn-soft", v: 0 }]);
   if (!v) return;
-  await snapshot("Trước khi xóa " + r.name);
+  await snapshot("Trước khi xóa " + nameOf(r));
   S.records = S.records.filter(x => x.id !== r.id);
   closeForm(); await changed(); renderAll();
-  showSaved(`Đã xóa “${r.name}”.`);
+  showSaved(`Đã xóa “${nameOf(r)}”.`);
 }
 
 let savedT;
@@ -827,7 +886,7 @@ function renderRev(){
   $("#pLabel").textContent = rg.label;
   const list = inRange(rg), total = sum(list);
   const prevA = addMonths(a.y, a.m, -STEP[p]), prg = range(p, prevA), prevTotal = sum(inRange(prg));
-  const gross = list.reduce((s, r) => s + r.price, 0);
+  const gross = list.reduce((s, r) => s + grossOf(r), 0);
   let delta = "";
   if (prevTotal > 0) {
     const pc = Math.round((total - prevTotal) / prevTotal * 100);
@@ -865,7 +924,7 @@ function renderRev(){
   $("#topSvc").innerHTML = tops.length ? tops.map(([k, o]) => `<div class="ts-row"><div class="l"><span>${esc(k)}</span><span class="num muted">${o.c} lượt · <b style="color:var(--plum)">${short(o.v)}</b></span></div><div class="track"><i style="width:${Math.max(4, o.v / tmax * 100).toFixed(1)}%"></i></div></div>`).join("")
     : `<p class="note">Chưa có lượt khách nào trong kỳ này.</p>`;
   const tx = list.slice().sort((x, y) => y.date.localeCompare(x.date));
-  $("#tx").innerHTML = tx.length ? tx.map(r => `<div class="tx-row"><span class="d num">${fmtD(r.date).slice(0,5)}</span><div class="n"><b>${esc(r.name)}</b><span>${esc(r.service || "—")}</span></div><span class="a num">${money(effective(r))}</span></div>`).join("")
+  $("#tx").innerHTML = tx.length ? tx.map(r => `<div class="tx-row"><span class="d num">${fmtD(r.date).slice(0,5)}</span><div class="n"><b>${esc(nameOf(r))}</b><span>${esc(r.service || "—")}</span></div><span class="a num">${money(effective(r))}</span></div>`).join("")
     : `<p class="note" style="padding:8px 0">Không có dữ liệu.</p>`;
 }
 
@@ -884,16 +943,17 @@ async function renderData(){
 }
 function csv(){
   const q = v => { const s = String(v ?? ""); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-  const head = ["Họ và tên","Số điện thoại","Dịch vụ","Ngày sử dụng","Bảo hành (ngày)","Ngày đến hạn","Số ngày còn lại","Giá gốc","Giá khuyến mãi","Thực thu","Ghi chú"];
+  const head = ["Họ và tên","Số điện thoại","Tuổi","Năm sinh","Địa chỉ","Dịch vụ","Ngày sử dụng","Bảo hành (ngày)","Ngày đến hạn","Số ngày còn lại","Giá gốc","Giá khuyến mãi","Thực thu","Ghi chú"];
   const rows = S.records.slice().sort((a, b) => a.date.localeCompare(b.date)).map(r => [
-    r.name, r.phone, r.service, fmtD(r.date), r.warranty, r.warranty ? fmtD(dueOf(r)) : "", r.warranty ? remain(r) : "", r.price, r.sale ?? "", effective(r), r.notes
+    r.name, r.phone, ageOf(r) ?? "", r.birthYear ?? "", r.address, r.service, fmtD(r.date), r.warranty, r.warranty ? fmtD(dueOf(r)) : "", r.warranty ? remain(r) : "", r.price ?? "", r.sale ?? "", effective(r), r.notes
   ].map(q).join(","));
   return "﻿" + [head.join(","), ...rows].join("\r\n");
 }
 function validRecords(arr){
-  return (Array.isArray(arr) ? arr : []).filter(r => r && typeof r.name === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.date) && Number.isFinite(+r.price))
-    .map(r => ({ id: r.id || uid(), name: r.name, phone: r.phone || "", service: r.service || "", date: r.date, warranty: +r.warranty || 0,
-      price: +r.price, sale: r.sale == null || r.sale === "" ? null : +r.sale, notes: r.notes || "", sample: !!r.sample,
+  return (Array.isArray(arr) ? arr : []).filter(r => r && typeof r === "object" && /^\d{4}-\d{2}-\d{2}$/.test(r.date))
+    .map(r => ({ id: r.id || uid(), name: typeof r.name === "string" ? r.name : "", phone: r.phone || "",
+      birthYear: Number.isFinite(+r.birthYear) && +r.birthYear > 1900 ? +r.birthYear : null, address: r.address || "", service: r.service || "", date: r.date, warranty: +r.warranty || 0,
+      price: r.price == null || r.price === "" || !Number.isFinite(+r.price) ? null : +r.price, sale: r.sale == null || r.sale === "" ? null : +r.sale, notes: r.notes || "", sample: !!r.sample,
       createdAt: r.createdAt || new Date().toISOString(), updatedAt: r.updatedAt || r.createdAt || new Date().toISOString() }));
 }
 async function restoreFromFile(file){
@@ -925,6 +985,7 @@ function sampleData(){
   const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   const names = ["Nguyễn Thị Lan Anh","Trần Minh Thư","Lê Hoàng Yến","Phạm Ngọc Hân","Vũ Thanh Hương","Đỗ Mai Chi","Bùi Thu Trang","Hoàng Bảo Ngọc","Ngô Phương Linh","Đặng Kim Oanh","Phan Thùy Dung","Trịnh Khánh Vy","Lý Hồng Nhung","Mai Diệu Linh"];
   const svcs = [["Chăm sóc da mặt chuyên sâu",450000,0],["Triệt lông nách",300000,90],["Phun môi collagen",2500000,180],["Massage body đá nóng",550000,0],["Điều trị mụn chuẩn y khoa",800000,30],["Tắm trắng phi thuyền",1200000,30],["Nối mi volume",350000,15],["Gội đầu dưỡng sinh",150000,0],["Phun mày ombre",2000000,180]];
+  const addrs = ["Q. Bình Thạnh, TP.HCM","Q.3, TP.HCM","TP. Thủ Đức, TP.HCM","Q. Gò Vấp, TP.HCM","Q. Phú Nhuận, TP.HCM","Dĩ An, Bình Dương",""];
   const out = [];
   for (let i = 0; i < 34; i++) {
     const s = svcs[Math.floor(rnd() * svcs.length)];
@@ -932,9 +993,10 @@ function sampleData(){
     const date = addDays(S.today, -Math.floor(rnd() * 200));
     const sale = disc ? Math.round(s[1] * (100 - disc) / 100 / 1000) * 1000 : null;
     const t = new Date().toISOString();
-    out.push({ id: uid(), name: names[Math.floor(rnd() * names.length)], phone: "09" + String(Math.floor(rnd() * 1e8)).padStart(8, "0"), service: s[0], date, warranty: s[2], price: s[1], sale, notes: "", sample: true, createdAt: t, updatedAt: t });
+    if (i === 3) { out.push({ id: uid(), name: "", phone: "", birthYear: null, address: "", service: "Gội đầu dưỡng sinh", date: addDays(S.today, -1), warranty: 0, price: null, sale: null, notes: "Khách vãng lai, bổ sung sau", sample: true, createdAt: t, updatedAt: t }); }
+    out.push({ id: uid(), name: names[Math.floor(rnd() * names.length)], phone: "09" + String(Math.floor(rnd() * 1e8)).padStart(8, "0"), birthYear: curYear() - (20 + Math.floor(rnd() * 32)), address: addrs[Math.floor(rnd() * addrs.length)], service: s[0], date, warranty: s[2], price: s[1], sale, notes: "", sample: true, createdAt: t, updatedAt: t });
   }
-  out.push({ id: uid(), name: "Nguyễn Thị Hương", phone: "0912345678", service: "Phun môi collagen", date: addDays(S.today, -176), warranty: 180, price: 2500000, sale: 1990000, notes: "Hẹn dặm màu", sample: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+  out.push({ id: uid(), name: "Nguyễn Thị Hương", phone: "0912345678", birthYear: curYear() - 34, address: "Q. Tân Bình, TP.HCM", service: "Phun môi collagen", date: addDays(S.today, -176), warranty: 180, price: 2500000, sale: 1990000, notes: "Hẹn dặm màu", sample: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
   return out;
 }
 
@@ -990,9 +1052,9 @@ function bind(){
 
   // Form
   $("#recForm").addEventListener("submit", saveForm);
-  $("#fCancel").onclick = closeForm;
+  $("#fCancel").onclick = requestClose;
   $("#fDelete").onclick = deleteRec;
-  $("#sheetWrap").addEventListener("click", e => { if (e.target.id === "sheetWrap") closeForm(); });
+  $("#sheetWrap").addEventListener("click", e => { if (e.target.id === "sheetWrap") requestClose(); });
   $("#dateChips").onclick = e => { const b = e.target.closest("[data-off]"); if (b) { $("#f-date").value = addDays(S.today, +b.dataset.off); updateForm(); } };
   $("#warChips").onclick = e => { const b = e.target.closest("[data-w]"); if (b) { $("#f-war").value = +b.dataset.w || ""; updateForm(); } };
   $("#svcChips").onclick = e => {
@@ -1015,8 +1077,8 @@ function bind(){
   };
   ["f-price", "f-sale"].forEach(id => $("#" + id).addEventListener("input", e => { formatMoneyInput(e.target); updateForm(); }));
   $$("[data-z]").forEach(b => b.onclick = () => { const el = $("#" + b.dataset.z); const v = readMoney(el); if (v != null && v < 1e9) setMoney(el, v * 1000); el.focus(); updateForm(); });
-  ["f-date", "f-war"].forEach(id => $("#" + id).addEventListener("input", updateForm));
-  $("#f-name").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("#f-service").focus(); } });
+  ["f-date", "f-war", "f-age"].forEach(id => $("#" + id).addEventListener("input", updateForm));
+  $("#f-name").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("#f-phone").focus(); } });
 
   // Revenue
   $("#periodSeg").onclick = e => { const b = e.target.closest("[data-p]"); if (b) { S.period = b.dataset.p; S.sel = null; renderRev(); } };
